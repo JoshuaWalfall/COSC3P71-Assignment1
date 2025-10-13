@@ -1,6 +1,8 @@
 import Program
 from collections import deque
 import itertools
+import sys
+import json
 
 #testF = open("test_output.txt", "w")
 
@@ -10,6 +12,7 @@ def apply_program(input_grid, program):
         return None
 
     grid = [row[:] for row in input_grid] # Deep copy
+    #grid_display(grid)
 
     if program.op == "ColorChange":
         old_color, new_color = program.right
@@ -28,12 +31,14 @@ def apply_program(input_grid, program):
     elif program.op == "Rotate":
         degrees = program.right
         if degrees == 90:
+            #print (len(grid), len(grid[0]))
             grid = [[grid[len(grid)-1-j][i] for j in range(len(grid))] for i in range(len(grid[0]))]
         # TODO: Implement 180 and 270 degree rotations
         elif degrees == 180:
             grid = [row[::-1] for row in grid[::-1]]
         elif degrees == 270:
-            grid = [[grid[j][len(grid)-1-i] for j in range(len(grid))] for i in range(len(grid[0]))]
+            grid = [[grid[j][len(grid[0])-1-i] for j in range(len(grid))] for i in range(len(grid[0]))]
+            #grid = [[grid[len(grid)-1-j][i] for j in range(len(grid))] for i in range (len(grid[0]))]
 
     elif program.op == "Scale2x2":
         # TODO: Implement 2x2 scaling
@@ -183,16 +188,17 @@ def testing():
 
     
     testGrid = [[0, 2, 0], [0, 0, 0], [0, 0, 0]]
-    test2Grid = [[0, ], [0, 1]]
+    test2Grid = [[1, 0], [0, 1]]
+    test3Grid = [[0, 0, 0], [0, 0, 0], [0, 1, 0], [0, 1, 0]]
 
     testColorMap = {
         1 : 2
     }
 
-    test = Program.Program ("DiagonalReflection", None, [1,5])
+    test = Program.Program ("Rotate", None, 270)
 
-    grid_display(test2Grid)
-    applied_grid = apply_program(test2Grid, test)
+    grid_display(test3Grid)
+    applied_grid = apply_program(test3Grid, test)
     grid_display(applied_grid)
 
 def bfs_search (train_data, max_complexity):
@@ -205,7 +211,10 @@ def bfs_search (train_data, max_complexity):
     basic_ops = generateBasics()
     counter = 0
     queue = deque(basic_ops)
+
+    toQueue = deque()
     while queue:
+        
         current_program = queue.popleft()
 
         #print("Testing :", current_program, file=testF)
@@ -214,6 +223,7 @@ def bfs_search (train_data, max_complexity):
         
         all_match = True
         for example in train_data:
+            print("Test Example:" , example)
             for i in range(len(train_data[example]['train'])):
                 input_grid = train_data[example]['train'][i]["input"]
                 #print("Input Grid:", file=testF)
@@ -239,10 +249,15 @@ def bfs_search (train_data, max_complexity):
         if all_match:
             return current_program
         
-        for basic_op in basic_ops:
-            new_program = Program.Program("Sequence", current_program, basic_op)
-            if new_program.complexity <= max_complexity:
-                queue.append(new_program)
+        toQueue.append(current_program) 
+        if len(queue) < 100000000:
+            toAdd = toQueue.popleft() # Oldest program in toQueue which hasn't created new programs yet
+            
+            if toAdd:
+                for basic_op in basic_ops:
+                    new_program = Program.Program("Sequence", toAdd, basic_op)
+                    if new_program.complexity <= max_complexity:
+                        queue.append(new_program)
 
     return None
 
@@ -324,6 +339,12 @@ def generateBasics ():
 
     return basic_ops
 
+def programGenerator (program):
+    basic_ops = generateBasics() 
+    for basic_op in basic_ops:
+        new_program = Program.Program("Sequence", program, basic_op)
+        yield new_program
+#testing()
 #testing = generateBasics()
 #for i in range(len(testing)):
     #print(testing[i])
