@@ -1,10 +1,11 @@
 import Program
 from collections import deque
 import itertools
-import sys
+import heapq
+import pickle
 import json
 
-#testF = open("test_output.txt", "w")
+safety_limit = 1000 #100000000
 
 def apply_program(input_grid, program):
     """Apply a program to an input grid and return the output grid."""
@@ -200,16 +201,10 @@ def testing():
     grid_display(test3Grid)
     applied_grid = apply_program(test3Grid, test)
     grid_display(applied_grid)
-
+    print(test)
 def bfs_search (train_data, max_complexity):
-    #Generate basic opps
-
-    #Implement main bfs loop
-
-    #check against training data
-    #Generate new probs by sequencing
+    """Breadth-First Search for program synthesis."""
     basic_ops = generateBasics()
-    counter = 0
     queue = deque(basic_ops)
 
     toQueue = deque()
@@ -217,47 +212,49 @@ def bfs_search (train_data, max_complexity):
         
         current_program = queue.popleft()
 
-        #print("Testing :", current_program, file=testF)
         print("Testing: ", current_program)
         print("Complexity: ", current_program.complexity)
         
         all_match = True
         for example in train_data:
-            print("Test Example:" , example)
-            for i in range(len(train_data[example]['train'])):
-                input_grid = train_data[example]['train'][i]["input"]
-                #print("Input Grid:", file=testF)
-                #grid_display(input_grid)
-                #print(train_data[example])
-                #print(len(train_data[example]))
-                expected_output = train_data[example]['train'][i]["output"]
-                #print("Expected Output:", file=testF)
-                #grid_display(expected_output)
-
-                #print("Actual Output:", file=testF)
-                actual_output = apply_program(input_grid, current_program)
-                #grid_display(actual_output)
-                if actual_output != expected_output:
-                    all_match = False
-                    print("Left in queue: ", len(queue))
-
-                    break
-                else:
-                    print("SUCCESS====================================")#, file=testF)
-            if all_match == False:
+            
+            input_grid = example["input"]
+            expected_output = example["output"]
+                
+            actual_output = apply_program(input_grid, current_program)
+                
+            if actual_output != expected_output:
+                all_match = False
+                print("Left in queue: ", len(queue), "Left To be queue-ed: ", len(toQueue))
                 break
+            
         if all_match:
+            print("Solution Found: ", current_program)
             return current_program
         
-        toQueue.append(current_program) 
-        if len(queue) < 100000000:
+        toQueue.append(current_program) #Right side
+        if len(queue) < safety_limit:
             toAdd = toQueue.popleft() # Oldest program in toQueue which hasn't created new programs yet
             
             if toAdd:
-                for basic_op in basic_ops:
-                    new_program = Program.Program("Sequence", toAdd, basic_op)
-                    if new_program.complexity <= max_complexity:
-                        queue.append(new_program)
+                if (isinstance(toAdd, int)):
+                    cacheLoad = open("cache/cache_"+str(toAdd), 'rb')
+                    cacheData = pickle.load(cacheLoad)
+                    toQueue.extendleft(cacheData)
+                    cacheLoad.close
+                else:    
+                    for basic_op in basic_ops:
+                        new_program = Program.Program("Sequence", toAdd, basic_op)
+                        if new_program.complexity <= max_complexity:
+                            queue.append(new_program)
+        if len(toQueue) > safety_limit:
+            cache = QueueCache()
+            for i in range(int(safety_limit/2)):
+                cache.list.append(toQueue.pop) #Pop SPECIFICALLY the youngest programs first (Right side)
+            toQueue.append(cache.number)
+            cacheSave = open(cache.name, 'ab')
+            pickle.dump(cache, cacheSave)
+            cacheSave.close       
 
     return None
 
@@ -339,12 +336,185 @@ def generateBasics ():
 
     return basic_ops
 
-def programGenerator (program):
-    basic_ops = generateBasics() 
-    for basic_op in basic_ops:
-        new_program = Program.Program("Sequence", program, basic_op)
-        yield new_program
-#testing()
-#testing = generateBasics()
-#for i in range(len(testing)):
-    #print(testing[i])
+
+
+def mismatched_cells (program, input_grid, expected_output):
+    actual_output = apply_program(input_grid, program)
+    #print("Testing Program: ", program)
+    #print("Input Grid:")
+    #grid_display(input_grid)
+    #print("Expected Output:")
+    #grid_display(expected_output)
+    #print("Actual Output:")
+    #grid_display(actual_output)
+    mismatched_cells = 0
+    h = max(len(expected_output), len(actual_output))
+    w = max(len(expected_output[0]), len(actual_output[0]))
+    for i in range(h):
+        for j in range(w):
+            if (i > (len(actual_output) -1) or i > (len(expected_output) -1)):
+                mismatched_cells += 1
+            else:
+                #print("here")
+                if (j > (len(actual_output[0]) -1) or j > (len(expected_output[0]) -1)):
+                    mismatched_cells += 1
+                else:
+                    #print(actual_output[i][j] != expected_output[i][j])
+                    if actual_output[i][j] != expected_output[i][j]:
+                        mismatched_cells += 1
+    #print("Mismatched Cells:", mismatched_cells)
+    return mismatched_cells
+
+#mismatched_cells(Program.Program("Rotate", None, 180), [[1, 0, 0], [0, 0, 0], [0, 0, 0]], [[0, 0, 2], [0, 0, 0], [0, 0, 0]])
+
+def heuristic_custom1 (program, train_data):
+    pass
+
+def gbfs_search (train_data, max_complexity, heuristic):
+    """Greedy Best-First Search for program synthesis using the provided heuristic function."""
+    basic_ops = generateBasics()
+    
+    queue = [HeapWrapper(op, 0) for op in basic_ops] 
+    heapq.heapify(queue)
+    max = len(queue)
+    for x in range(max_complexity):
+        #print ("Current Complexity:" ,x)
+        for current in queue:
+            current_program = current.program
+
+            #print("Testing: ", current_program)
+            
+            #print(max - y, " programs left in queue")
+            all_match = True
+            heuristic_value = 0
+            for example in train_data:
+                input_grid = example["input"] 
+                expected_output = example["output"]
+                
+                actual_output = apply_program(input_grid, current_program)
+                
+                if actual_output != expected_output:
+                    all_match = False
+                    heuristic_value =+ heuristic(current_program, input_grid, expected_output)
+                    
+                    break
+            current.priority = heuristic_value
+            if all_match:
+                print("Solution Found: ", current_program, " with priority ", current.priority)
+                return current_program
+        queue.sort()
+        #temp_solution = heapq.heappop(queue)
+        temp_solution = queue[0]
+        #print(temp_solution)
+        #print(temp_solution.program.left, temp_solution.program.right)
+        #grid_display(apply_program(train_data[0]["input"], temp_solution.program))
+        #grid_display(train_data[0]["output"])
+        with open ("testOutput.txt", "w") as testF:
+            for j in queue:
+                print(j.priority, end=" | ", file=testF)
+                print(j.program, file=testF)
+
+        for basic_op in basic_ops:
+            new_heap = HeapWrapper(Program.Program("Sequence", temp_solution.program, basic_op), temp_solution.priority)
+            
+            heapq.heappush(queue, new_heap)
+        max = len(queue)
+        #print(max)
+        
+    return None
+
+def a_star_search (train_data, max_complexity, heuristic):
+    """A* search for prgoram syntheisis using the provided heuristic function."""
+    basic_ops = generateBasics()
+    
+    queue = [HeapWrapper(op, 0) for op in basic_ops] 
+    heapq.heapify(queue)
+    max = len(queue)
+    for x in range(max_complexity):
+        #print ("Current Complexity:" ,x)
+        for current in queue:
+            current_program = current.program
+
+            #print("Testing: ", current_program)
+            
+            #print(max - y, " programs left in queue")
+            all_match = True
+            base_value = current_program.complexity
+            for example in train_data:
+                input_grid = example["input"] 
+                expected_output = example["output"]
+                
+                actual_output = apply_program(input_grid, current_program)
+                
+                if actual_output != expected_output:
+                    all_match = False
+                    base_value =+ heuristic(current_program, input_grid, expected_output)
+                    
+                    break
+            current.priority = base_value
+            if all_match:
+                #print("Solution Found: ", current_program, " with priority ", current.priority)
+                return current_program
+        queue.sort()
+        #temp_solution = heapq.heappop(queue)
+        temp_solution = queue[0]
+        #print(temp_solution)
+        #print(temp_solution.program.left, temp_solution.program.right)
+        #grid_display(apply_program(train_data[0]["input"], temp_solution.program))
+        #grid_display(train_data[0]["output"])
+        with open ("testOutput.txt", "w") as testF:
+            for j in queue:
+                print(j.priority, end=" | ", file=testF)
+                print(j.program, file=testF)
+
+        for basic_op in basic_ops:
+            new_heap = HeapWrapper(Program.Program("Sequence", temp_solution.program, basic_op), temp_solution.priority)
+            
+            heapq.heappush(queue, new_heap)
+        max = len(queue)
+        #print(max)
+        
+    return None
+
+class HeapWrapper:
+    def __init__(self, program, priority):
+        self.program = program
+        self.priority = priority
+    def __lt__ (self, other):
+        return self.priority < other.priority
+    def __str__ (self):
+        return str(self.program) + " with priority " + str(self.priority)
+
+class QueueCache:
+    def __init__(self):
+        cr = open("cache.json", 'r+')
+        test_char = cr .read(1)
+        if not test_char:
+            master_cache = {"counter": 1,"list": []}
+        else:
+            cr.seek(0)
+            master_cache = json.load(cr)
+        self.number = master_cache["counter"]
+        self.list = []
+        cr.close()
+        self.name = "cache/cache_" + str(self.number)
+        print(self.name)
+        ce = open("cache.json", "w")
+        master_cache["list"].append({str(self.number):self.name})
+        master_cache["counter"] = master_cache["counter"] + 1
+        ce.write(json.dumps(master_cache, indent=3))
+        ce.close()
+
+cache = QueueCache()
+cache.list.extend(generateBasics()) #Pop SPECIFICALLY the youngest programs first (Right side)
+cacheSave = open(cache.name, 'ab')
+pickle.dump(cache, cacheSave)
+cacheSave.close   
+
+
+cacheLoad = open("cache/cache_"+str(7), 'rb')
+cachedData = pickle.load(cacheLoad)
+for i in range(len(cachedData.list)):
+    print(cachedData.list[i])
+cacheLoad.close
+#print(len(generateBasics()))

@@ -40,3 +40,8 @@ class Program:
             return f"SwapColors({self.right[0]}, {self.right[1]})"
         elif self.op == "DiagonalReflection":
             return f"DiagonalReflection({self.right[0]}, {self.right[1]})"
+        return ""
+    def __lt__(self, other):
+        return self.complexity < other.complexity
+    def __eq__(self, other):
+        return (self.op == other.op and self.left == other.left and self.right == other.right)
