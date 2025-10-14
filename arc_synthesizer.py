@@ -5,7 +5,7 @@ import heapq
 import pickle
 import json
 
-safety_limit = 1000 #100000000
+safety_limit = 50000000
 
 def apply_program(input_grid, program):
     """Apply a program to an input grid and return the output grid."""
@@ -32,18 +32,15 @@ def apply_program(input_grid, program):
     elif program.op == "Rotate":
         degrees = program.right
         if degrees == 90:
-            #print (len(grid), len(grid[0]))
             grid = [[grid[len(grid)-1-j][i] for j in range(len(grid))] for i in range(len(grid[0]))]
         # TODO: Implement 180 and 270 degree rotations
         elif degrees == 180:
             grid = [row[::-1] for row in grid[::-1]]
         elif degrees == 270:
             grid = [[grid[j][len(grid[0])-1-i] for j in range(len(grid))] for i in range(len(grid[0]))]
-            #grid = [[grid[len(grid)-1-j][i] for j in range(len(grid))] for i in range (len(grid[0]))]
 
     elif program.op == "Scale2x2":
         # TODO: Implement 2x2 scaling
-        # pass
         new_grid = []
         for row in grid:
             new_row1 = []
@@ -56,7 +53,6 @@ def apply_program(input_grid, program):
         grid = new_grid
     elif program.op == "Scale3x3":
         # TODO: Implement 3x3 scaling
-        #pass
         new_grid = []
         for row in grid:
             new_row1 = []
@@ -70,7 +66,6 @@ def apply_program(input_grid, program):
             new_grid.append(new_row2)
             new_grid.append(new_row3)
         grid = new_grid
-    # TODO: Implement other operations (Scale2x1, Scale1x2, PositionalShift,etc.)
     elif program.op == "Scale2x1":
         #Horizontal Scaling by 2
         new_grid = []
@@ -167,8 +162,6 @@ def apply_program(input_grid, program):
                         new_grid[j][i] = new_color
         grid = new_grid
                     
-
-
     elif program.op == "Sequence":
      # Apply left program first, then right program
         grid = apply_program(grid, program.left)
@@ -185,23 +178,7 @@ def grid_display(grid):
         print("|")
     print("- " *(len(grid[0]) + 2))
 
-def testing():
 
-    
-    testGrid = [[0, 2, 0], [0, 0, 0], [0, 0, 0]]
-    test2Grid = [[1, 0], [0, 1]]
-    test3Grid = [[0, 0, 0], [0, 0, 0], [0, 1, 0], [0, 1, 0]]
-
-    testColorMap = {
-        1 : 2
-    }
-
-    test = Program.Program ("Rotate", None, 270)
-
-    grid_display(test3Grid)
-    applied_grid = apply_program(test3Grid, test)
-    grid_display(applied_grid)
-    print(test)
 def bfs_search (train_data, max_complexity):
     """Breadth-First Search for program synthesis."""
     basic_ops = generateBasics()
@@ -212,8 +189,8 @@ def bfs_search (train_data, max_complexity):
         
         current_program = queue.popleft()
 
-        print("Testing: ", current_program)
-        print("Complexity: ", current_program.complexity)
+        #print("Testing: ", current_program)
+        #print("Complexity: ", current_program.complexity)
         
         all_match = True
         for example in train_data:
@@ -225,11 +202,11 @@ def bfs_search (train_data, max_complexity):
                 
             if actual_output != expected_output:
                 all_match = False
-                print("Left in queue: ", len(queue), "Left To be queue-ed: ", len(toQueue))
+                
                 break
             
         if all_match:
-            print("Solution Found: ", current_program)
+            #print("Solution Found: ", current_program)
             return current_program
         
         toQueue.append(current_program) #Right side
@@ -340,13 +317,6 @@ def generateBasics ():
 
 def mismatched_cells (program, input_grid, expected_output):
     actual_output = apply_program(input_grid, program)
-    #print("Testing Program: ", program)
-    #print("Input Grid:")
-    #grid_display(input_grid)
-    #print("Expected Output:")
-    #grid_display(expected_output)
-    #print("Actual Output:")
-    #grid_display(actual_output)
     mismatched_cells = 0
     h = max(len(expected_output), len(actual_output))
     w = max(len(expected_output[0]), len(actual_output[0]))
@@ -367,8 +337,16 @@ def mismatched_cells (program, input_grid, expected_output):
 
 #mismatched_cells(Program.Program("Rotate", None, 180), [[1, 0, 0], [0, 0, 0], [0, 0, 0]], [[0, 0, 2], [0, 0, 0], [0, 0, 0]])
 
-def heuristic_custom1 (program, train_data):
-    pass
+def heuristic_custom1 (program, input_grid, output_grid):
+    actual_output = apply_program(input_grid, program)
+    dimension_weight = abs(len(actual_output) - len(output_grid)) + abs(len(actual_output) - len(output_grid))
+    #print(dimension_weight)
+    color_weight = 0
+    for i in range(10):
+        if i in itertools.chain(*output_grid) != i in itertools.chain(*actual_output):
+            color_weight =+ 1
+    return color_weight + 2*dimension_weight
+            
 
 def gbfs_search (train_data, max_complexity, heuristic):
     """Greedy Best-First Search for program synthesis using the provided heuristic function."""
@@ -376,15 +354,12 @@ def gbfs_search (train_data, max_complexity, heuristic):
     
     queue = [HeapWrapper(op, 0) for op in basic_ops] 
     heapq.heapify(queue)
-    max = len(queue)
+    
     for x in range(max_complexity):
         #print ("Current Complexity:" ,x)
         for current in queue:
             current_program = current.program
 
-            #print("Testing: ", current_program)
-            
-            #print(max - y, " programs left in queue")
             all_match = True
             heuristic_value = 0
             for example in train_data:
@@ -403,23 +378,13 @@ def gbfs_search (train_data, max_complexity, heuristic):
                 print("Solution Found: ", current_program, " with priority ", current.priority)
                 return current_program
         queue.sort()
-        #temp_solution = heapq.heappop(queue)
+        
         temp_solution = queue[0]
-        #print(temp_solution)
-        #print(temp_solution.program.left, temp_solution.program.right)
-        #grid_display(apply_program(train_data[0]["input"], temp_solution.program))
-        #grid_display(train_data[0]["output"])
-        with open ("testOutput.txt", "w") as testF:
-            for j in queue:
-                print(j.priority, end=" | ", file=testF)
-                print(j.program, file=testF)
-
+        
         for basic_op in basic_ops:
             new_heap = HeapWrapper(Program.Program("Sequence", temp_solution.program, basic_op), temp_solution.priority)
             
             heapq.heappush(queue, new_heap)
-        max = len(queue)
-        #print(max)
         
     return None
 
@@ -429,15 +394,13 @@ def a_star_search (train_data, max_complexity, heuristic):
     
     queue = [HeapWrapper(op, 0) for op in basic_ops] 
     heapq.heapify(queue)
-    max = len(queue)
+    
     for x in range(max_complexity):
-        #print ("Current Complexity:" ,x)
+        
         for current in queue:
             current_program = current.program
 
-            #print("Testing: ", current_program)
-            
-            #print(max - y, " programs left in queue")
+           
             all_match = True
             base_value = current_program.complexity
             for example in train_data:
@@ -456,26 +419,18 @@ def a_star_search (train_data, max_complexity, heuristic):
                 #print("Solution Found: ", current_program, " with priority ", current.priority)
                 return current_program
         queue.sort()
-        #temp_solution = heapq.heappop(queue)
+        
         temp_solution = queue[0]
-        #print(temp_solution)
-        #print(temp_solution.program.left, temp_solution.program.right)
-        #grid_display(apply_program(train_data[0]["input"], temp_solution.program))
-        #grid_display(train_data[0]["output"])
-        with open ("testOutput.txt", "w") as testF:
-            for j in queue:
-                print(j.priority, end=" | ", file=testF)
-                print(j.program, file=testF)
 
         for basic_op in basic_ops:
             new_heap = HeapWrapper(Program.Program("Sequence", temp_solution.program, basic_op), temp_solution.priority)
             
             heapq.heappush(queue, new_heap)
-        max = len(queue)
-        #print(max)
+        
+      
         
     return None
-
+#Used to solely sort programs by their heuristic value, ignoring tie breaker by complexity
 class HeapWrapper:
     def __init__(self, program, priority):
         self.program = program
@@ -484,7 +439,7 @@ class HeapWrapper:
         return self.priority < other.priority
     def __str__ (self):
         return str(self.program) + " with priority " + str(self.priority)
-
+#Custom class to store cached values during deep BFS search, to ensure that memory didn't overflow
 class QueueCache:
     def __init__(self):
         cr = open("cache.json", 'r+')
@@ -505,16 +460,3 @@ class QueueCache:
         ce.write(json.dumps(master_cache, indent=3))
         ce.close()
 
-cache = QueueCache()
-cache.list.extend(generateBasics()) #Pop SPECIFICALLY the youngest programs first (Right side)
-cacheSave = open(cache.name, 'ab')
-pickle.dump(cache, cacheSave)
-cacheSave.close   
-
-
-cacheLoad = open("cache/cache_"+str(7), 'rb')
-cachedData = pickle.load(cacheLoad)
-for i in range(len(cachedData.list)):
-    print(cachedData.list[i])
-cacheLoad.close
-#print(len(generateBasics()))

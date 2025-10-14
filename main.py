@@ -8,7 +8,7 @@ def dataReader(name):
         data = json.load(f)
     return data
 
-arc_synthesizer.bfs_search(dataReader("arc-agi_challenges.json")["9d4f6a8e"]["train"], 2)
+#arc_synthesizer.bfs_search(dataReader("arc-agi_challenges.json")["9d4f6a8e"]["train"], 2)
 #arc_synthesizer.gbfs_search(trainningDataReader()["b6f3e8d7"]["train"], 5, arc_synthesizer.mismatched_cells)
 #arc_synthesizer.a_star_search(trainningDataReader()["b6f3e8d7"]["train"], 5, arc_synthesizer.mismatched_cells)
 #arc_synthesizer.testF.close()
@@ -19,7 +19,9 @@ def main():
 
     bfs_accuracy = 0
     gfbs_accuracy = 0
+    gfbs_accuracy_custom = 0
     a_star_accuracy = 0
+    a_star_accuracy_custom = 0
 
     total_num = len(data)
     for key in data:
@@ -29,7 +31,7 @@ def main():
         print("Testing Task:", key, file=result_file)
 
         # BFS Search
-        #print("Beginning BFS Search")
+        
         print("Beginning BFS Search", file=result_file)
         start = time.perf_counter()
         result = arc_synthesizer.bfs_search(data[key]["train"], 5)
@@ -59,6 +61,22 @@ def main():
 
         if (output == solution[key][0]):
             gbfs_accuracy =+ 1
+
+        # GBFS Search CUSTOM
+        #print("Beginning BFS Search (Mismatched Cells)")
+        print("Beginning BFS Search (Custom Heurstic)", file=result_file)
+        start = time.perf_counter()
+        result = arc_synthesizer.gbfs_search(data[key]["train"], 5, arc_synthesizer.heuristic_custom1)
+        end = time.perf_counter()
+        print ("GBFS(C): ", result, "Time: ", round(end - start, 2))
+        print ("GBFS(C): ", result, "Time: ", round(end - start, 2), file=result_file)
+
+        output = arc_synthesizer.apply_program(data[key]["test"][0]["input"], result) if result else None
+        print ("Test Output: ", output )
+        print ("Test Output: ", output, file=result_file)
+
+        if (output == solution[key][0]):
+            gbfs_accuracy_custom =+ 1
         
         # A* Search
         #print("Beginning BFS Search (Mismatched Cells)")
@@ -75,6 +93,22 @@ def main():
         
         if (output == solution[key][0]):
             a_star_accuracy =+ 1
+
+        # A* Search CUSTOM
+        #print("Beginning BFS Search (Mismatched Cells)")
+        print("Beginning BFS Search (Custom)", file=result_file)
+        start = time.perf_counter()
+        result = arc_synthesizer.a_star_search(data[key]["train"], 5, arc_synthesizer.heuristic_custom1)
+        end = time.perf_counter()
+        print ("A*(C): ", result, "Time: ", round(end - start, 2))
+        print ("A*(C): ", result, "Time: ", round(end - start, 2), file=result_file)
+
+        output = arc_synthesizer.apply_program(data[key]["test"][0]["input"], result) if result else None
+        print ("Test Output: ", output )
+        print ("Test Output: ", output, file=result_file)
+        
+        if (output == solution[key][0]):
+            a_star_accuracy_custom =+ 1
 
         print("Expected Outcome: ", solution[key][0])
         print("Expected Outcome: ", solution[key][0], file=result_file)
@@ -100,4 +134,4 @@ def main():
     result_file.close
         
 
-#main()
+main() 
