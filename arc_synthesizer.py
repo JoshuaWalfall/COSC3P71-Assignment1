@@ -209,8 +209,10 @@ def bfs_search (train_data, max_complexity):
             #print("Solution Found: ", current_program)
             return current_program
         
-        toQueue.append(current_program) #Right side
-        if len(queue) < safety_limit:
+        if (current_program.complexity < max_complexity):
+            toQueue.append(current_program) #Right side
+
+        if len(queue) < safety_limit and len(toQueue) > 0:
             toAdd = toQueue.popleft() # Oldest program in toQueue which hasn't created new programs yet
             
             if toAdd:
@@ -219,6 +221,7 @@ def bfs_search (train_data, max_complexity):
                     cacheData = pickle.load(cacheLoad)
                     toQueue.extendleft(cacheData)
                     cacheLoad.close
+                    print("Loaded cache_", toAdd, " | Queue Remaining: ", len(queue), " | Queue Pending: ", len(toQueue))
                 else:    
                     for basic_op in basic_ops:
                         new_program = Program.Program("Sequence", toAdd, basic_op)
@@ -229,6 +232,7 @@ def bfs_search (train_data, max_complexity):
             for i in range(int(safety_limit/2)):
                 cache.list.append(toQueue.pop) #Pop SPECIFICALLY the youngest programs first (Right side)
             toQueue.append(cache.number)
+            print("Loaded to cache_", cache.number, " | Queue Remaining: ", len(queue), " | Queue Pending: ", len(toQueue), " | Current Complexity: ", queue[0].complexity)
             cacheSave = open(cache.name, 'ab')
             pickle.dump(cache, cacheSave)
             cacheSave.close       
@@ -375,7 +379,7 @@ def gbfs_search (train_data, max_complexity, heuristic):
                     break
             current.priority = heuristic_value
             if all_match:
-                print("Solution Found: ", current_program, " with priority ", current.priority)
+                #print("Solution Found: ", current_program, " with priority ", current.priority)
                 return current_program
         queue.sort()
         
@@ -453,7 +457,7 @@ class QueueCache:
         self.list = []
         cr.close()
         self.name = "cache/cache_" + str(self.number)
-        print(self.name)
+        #print(self.name)
         ce = open("cache.json", "w")
         master_cache["list"].append({str(self.number):self.name})
         master_cache["counter"] = master_cache["counter"] + 1
